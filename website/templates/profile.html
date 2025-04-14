@@ -1,11 +1,115 @@
 {% extends "base.html" %} {% block content %}
+<h1 class="text-center mb-4">Bio</h1>
+<ul class="list-group list-group-flush" id="bio">
+  {% for bio in user.bios %}
+  <li class="list-group-item d-flex justify-content-between align-items-center">
+    <span style="white-space: pre-wrap">{{ bio.bio }}</span>
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-danger"
+      onClick="deleteBio('{{ bio.id }}')"
+      aria-label="Delete"
+    >
+      <i class="fa fa-times"></i>
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+
+<form method="POST" class="mt-4">
+  <textarea
+    name="bio"
+    id="bio"
+    class="form-control mb-3"
+    placeholder="Write your bio here..."
+  ></textarea>
+  <div class="text-center">
+    <button type="submit" class="btn btn-primary">Add Bio</button>
+  </div>
+</form>
+<h1 class="text-center mb-4">Education</h1>
+<ul class="list-group list-group-flush" id="education">
+  {% for education in user.educations %}
+  <li class="list-group-item">
+    <div class="d-flex justify-content-between">
+      <h5 class="mb-1">{{ education.uni }}</h5>
+      <span class="text-muted">{{ education.location }}</span>
+    </div>
+    <div class="d-flex justify-content-between align-items-center">
+      <em>{{ education.degree }}</em>
+      <div class="d-flex align-items-center">
+        <span class="text-muted me-3"
+          >{{ education.start_year }} - {{ education.end_year }}</span
+        >
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-danger"
+          onClick="deleteEducation('{{ education.id }}')"
+          aria-label="Delete"
+        >
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+<form method="POST" class="mt-4">
+  <div class="form-group">
+    <label for="uni">Institution Name</label>
+    <input type="text" name="uni" id="uni" class="form-control" required />
+  </div>
+  <div class="form-group">
+    <label for="location">Location</label>
+    <input
+      type="text"
+      name="location"
+      id="location"
+      class="form-control"
+      required
+    />
+  </div>
+  <div class="form-group">
+    <label for="degree">Degree</label>
+    <input
+      type="text"
+      name="degree"
+      id="degree"
+      class="form-control"
+      required
+    />
+  </div>
+  <div class="form-group">
+    <label for="start_year">Start Year</label>
+    <input
+      type="text"
+      name="start_year"
+      id="start_year"
+      class="form-control"
+      required
+    />
+  </div>
+  <div class="form-group">
+    <label for="end_year">End Year</label>
+    <input
+      type="text"
+      name="end_year"
+      id="end_year"
+      class="form-control"
+      required
+    />
+  </div>
+  <div class="text-center mt-3">
+    <button type="submit" class="btn btn-primary">Add Education</button>
+  </div>
+</form>
 <h1 class="text-center mb-4">Experiences</h1>
 
 <ul class="list-group list-group-flush" id="experience">
   {% for experience in user.experiences %}
   <li class="list-group-item d-flex justify-content-between align-items-center">
     <div>
-      <h5>{{ experience.role }} at {{ experience.comp }}</h5>
+      <h5>{{ experience.role }} • {{ experience.comp }}</h5>
       <p style="white-space: pre-wrap">{{ experience.desc }}</p>
       <p><strong>Duration:</strong> {{ experience.duration }} months</p>
       <p>
@@ -71,9 +175,54 @@
     <button type="submit" class="btn btn-primary">Add Experience</button>
   </div>
 </form>
+<h1 class="text-center mb-4">Projects</h1>
+<ul class="list-group list-group-flush" id="project">
+  {% for project in user.projects %}
+  <li class="list-group-item">
+    <div class="d-flex justify-content-between">
+      <h5 class="mb-1">{{ project.proj }}</h5>
+      <span class="text-muted">{{ project.tool }}</span>
+    </div>
+    <div class="d-flex justify-content-between align-items-center">
+      <p class="mb-1" style="white-space: pre-wrap">{{ project.desc }}</p>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-danger"
+        onClick="deleteProject('{{ project.id }}')"
+        aria-label="Delete"
+      >
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
 
+<form method="POST" class="mt-4">
+  <input type="hidden" name="form_type" value="project" />
+  <div class="form-group">
+    <label for="proj">Project Title</label>
+    <input type="text" name="proj" id="proj" class="form-control" required />
+  </div>
+  <div class="form-group">
+    <label for="tool">Tool/Tech Used</label>
+    <input type="text" name="tool" id="tool" class="form-control" required />
+  </div>
+  <div class="form-group">
+    <label for="desc">Description</label>
+    <textarea
+      name="desc"
+      id="desc"
+      class="form-control"
+      rows="3"
+      required
+    ></textarea>
+  </div>
+  <div class="text-center mt-3">
+    <button type="submit" class="btn btn-primary">Add Project</button>
+  </div>
+</form>
 <h1 class="text-center mb-4">Skills</h1>
-
 <ul class="list-group list-group-flush" id="skill">
   {% for skill in user.skills %}
   <li class="list-group-item d-flex justify-content-between align-items-center">
