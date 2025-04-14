@@ -1,0 +1,104 @@
+{% extends "base.html" %} {% block content %}
+<h1 class="text-center mb-4">Experiences</h1>
+
+<ul class="list-group list-group-flush" id="experience">
+  {% for experience in user.experiences %}
+  <li class="list-group-item d-flex justify-content-between align-items-center">
+    <div>
+      <h5>{{ experience.role }} at {{ experience.comp }}</h5>
+      <p style="white-space: pre-wrap">{{ experience.desc }}</p>
+      <p><strong>Duration:</strong> {{ experience.duration }} months</p>
+      <p>
+        <strong>Status:</strong> {% if experience.ongoing %}Ongoing{% else
+        %}Ended{% endif %}
+      </p>
+    </div>
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-danger"
+      onClick="deleteExperience('{{ experience.id }}')"
+      aria-label="Delete"
+    >
+      <i class="fa fa-times"></i>
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+
+<form method="POST" class="mt-4">
+  <div class="form-group">
+    <label for="role">Role</label>
+    <input type="text" name="role" id="role" class="form-control" required />
+  </div>
+  <div class="form-group">
+    <label for="comp">Company</label>
+    <input type="text" name="comp" id="comp" class="form-control" required />
+  </div>
+  <div class="form-group">
+    <label for="desc">Description</label>
+    <textarea
+      name="desc"
+      id="desc"
+      class="form-control"
+      rows="4"
+      required
+    ></textarea>
+  </div>
+  <div class="form-group">
+    <label for="start_date">Start Date</label>
+    <input
+      type="date"
+      name="start_date"
+      id="start_date"
+      class="form-control"
+      required
+    />
+  </div>
+  <div class="form-group">
+    <label for="end_date">End Date</label>
+    <input type="date" name="end_date" id="end_date" class="form-control" />
+  </div>
+  <div class="form-group">
+    <label for="ongoing">Ongoing</label>
+    <input
+      type="checkbox"
+      name="ongoing"
+      id="ongoing"
+      class="form-check-input"
+    />
+  </div>
+  <div class="text-center">
+    <button type="submit" class="btn btn-primary">Add Experience</button>
+  </div>
+</form>
+
+<h1 class="text-center mb-4">Skills</h1>
+
+<ul class="list-group list-group-flush" id="skill">
+  {% for skill in user.skills %}
+  <li class="list-group-item d-flex justify-content-between align-items-center">
+    <span style="white-space: pre-wrap">{{ skill.data }}</span>
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-danger"
+      onClick="deleteSkill('{{ skill.id }}')"
+      aria-label="Delete"
+    >
+      <i class="fa fa-times"></i>
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+
+<form method="POST" class="mt-4">
+  <textarea
+    name="skill"
+    id="skill"
+    class="form-control mb-3"
+    placeholder="Write your note here..."
+  ></textarea>
+  <div class="text-center">
+    <button type="submit" class="btn btn-primary">Add Skill</button>
+  </div>
+</form>
+{% endblock %}

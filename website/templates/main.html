@@ -1,0 +1,26 @@
+{% extends "base.html" %} {% block content %}
+<div
+  class="d-flex flex-column justify-content-center align-items-center text-center"
+  style="height: 80vh"
+>
+  <div>
+    <h1 class="display-3 fw-bold mb-3">EasyRes</h1>
+    <h4 class="text-muted mb-4">
+      Build beautiful, tailored resumes in minutes
+    </h4>
+
+    <div class="d-flex gap-3 justify-content-center">
+      <a
+        href="{{ url_for('auth.sign_up') }}"
+        class="btn btn-primary btn-lg px-4"
+        >Get Started</a
+      >
+      <a
+        href="{{ url_for('auth.sign_in') }}"
+        class="btn btn-outline-secondary btn-lg px-4"
+        >Sign In</a
+      >
+    </div>
+  </div>
+</div>
+{% endblock %}
