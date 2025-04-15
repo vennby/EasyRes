@@ -12,7 +12,7 @@
   So I just built it myself.
 </p>
 
-<h3> What is *EasyRes*?</h3>
+<h3> What is <b>EasyRes</b>?</h3>
 <ul>
   <li>Automation tool for quickly building tailor-made resumes for applying to different domains or roles</li>
   <li>Maintains complete database of profile and dynamically generates resume based on user's selections</li>
