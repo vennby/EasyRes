@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, jsonify, redirect, url_for, send_file
+from flask import Blueprint, render_template, request, flash, jsonify, redirect, url_for, send_file, abort
 from flask_login import login_required, current_user
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -11,7 +11,8 @@ views = Blueprint('views', __name__)
 @views.route('/home')
 @login_required
 def home():
-    return render_template("home.html", user=current_user)
+    resumes = Resume.query.filter_by(user_id=current_user.id).order_by(Resume.created_at.desc()).all()
+    return render_template("home.html", user=current_user, resumes=resumes)
 
 @views.route('/profile', methods=['GET','POST'])
 @login_required
@@ -128,6 +129,17 @@ def add_skill(skill_data):
         flash("Skill added!", category='success')
     return redirect(url_for('views.profile'))
 
+@views.route('/delete-bio', methods=['POST'])
+@login_required
+def delete_bio():
+    bio_data = json.loads(request.data)
+    bio_id = bio_data['bioId']
+    bio = Bios.query.get(bio_id)
+    if bio and bio.user_id == current_user.id:
+        db.session.delete(bio)
+        db.session.commit()
+    return jsonify({})
+
 @views.route('/delete-education', methods=['POST'])
 def delete_education():
     education_data = json.loads(request.data)
@@ -169,60 +181,223 @@ def delete_skill():
             db.session.commit()
     return jsonify({})
 
-@views.route('/download-resume')
+# List all resumes for the current user
+@views.route('/resumes')
 @login_required
-def download_resume():
+def list_resumes():
+    resumes = Resume.query.filter_by(user_id=current_user.id).order_by(Resume.created_at.desc()).all()
+    return render_template('resumes.html', resumes=resumes, user=current_user)
+
+# Create a new resume (GET: show form, POST: save selections)
+@views.route('/resume/create', methods=['GET', 'POST'])
+@login_required
+def create_resume():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        bio_ids = request.form.getlist('bios')
+        education_ids = request.form.getlist('educations')
+        experience_ids = request.form.getlist('experiences')
+        project_ids = request.form.getlist('projects')
+        skill_ids = request.form.getlist('skills')
+        resume = Resume(name=name, user_id=current_user.id)
+        resume.bios = Bios.query.filter(Bios.id.in_(bio_ids)).all() if bio_ids else []
+        resume.educations = Educations.query.filter(Educations.id.in_(education_ids)).all() if education_ids else []
+        resume.experiences = Experiences.query.filter(Experiences.id.in_(experience_ids)).all() if experience_ids else []
+        resume.projects = Projects.query.filter(Projects.id.in_(project_ids)).all() if project_ids else []
+        resume.skills = Skills.query.filter(Skills.id.in_(skill_ids)).all() if skill_ids else []
+        db.session.add(resume)
+        db.session.commit()
+        flash('Resume created!', category='success')
+        return redirect(url_for('views.list_resumes'))
+    # GET: show selection form
+    return render_template('resume_form.html',
+        user=current_user,
+        bios=current_user.bios,
+        educations=current_user.educations,
+        experiences=current_user.experiences,
+        projects=current_user.projects,
+        skills=current_user.skills,
+        resume=None
+    )
+
+# Edit a resume
+@views.route('/resume/<int:resume_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_resume(resume_id):
+    resume = Resume.query.get_or_404(resume_id)
+    if resume.user_id != current_user.id:
+        abort(403)
+    if request.method == 'POST':
+        resume.name = request.form.get('name')
+        bio_ids = request.form.getlist('bios')
+        education_ids = request.form.getlist('educations')
+        experience_ids = request.form.getlist('experiences')
+        project_ids = request.form.getlist('projects')
+        skill_ids = request.form.getlist('skills')
+        resume.bios = Bios.query.filter(Bios.id.in_(bio_ids)).all() if bio_ids else []
+        resume.educations = Educations.query.filter(Educations.id.in_(education_ids)).all() if education_ids else []
+        resume.experiences = Experiences.query.filter(Experiences.id.in_(experience_ids)).all() if experience_ids else []
+        resume.projects = Projects.query.filter(Projects.id.in_(project_ids)).all() if project_ids else []
+        resume.skills = Skills.query.filter(Skills.id.in_(skill_ids)).all() if skill_ids else []
+        db.session.commit()
+        flash('Resume updated!', category='success')
+        return redirect(url_for('views.list_resumes'))
+    return render_template('resume_form.html',
+        user=current_user,
+        bios=current_user.bios,
+        educations=current_user.educations,
+        experiences=current_user.experiences,
+        projects=current_user.projects,
+        skills=current_user.skills,
+        resume=resume
+    )
+
+# Delete a resume
+@views.route('/resume/<int:resume_id>/delete', methods=['POST'])
+@login_required
+def delete_resume(resume_id):
+    resume = Resume.query.get_or_404(resume_id)
+    if resume.user_id != current_user.id:
+        abort(403)
+    db.session.delete(resume)
+    db.session.commit()
+    flash('Resume deleted!', category='success')
+    return redirect(url_for('views.list_resumes'))
+
+# Fetch a single resume (for edit)
+@views.route('/resume/<int:resume_id>')
+@login_required
+def view_resume(resume_id):
+    resume = Resume.query.get_or_404(resume_id)
+    if resume.user_id != current_user.id:
+        abort(403)
+    return render_template('resume_preview.html', resume=resume, user=current_user)
+
+@views.route('/resume/<int:resume_id>/download')
+@login_required
+def download_specific_resume(resume_id):
+    resume = Resume.query.get_or_404(resume_id)
+    if resume.user_id != current_user.id:
+        abort(403)
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
+    left_margin = 50
+    right_margin = width - 50
+    y = height - 60
+    line_height = 18
+    section_gap = 28
 
-    y = height - 50
+    # Register EB Garamond font (ensure the TTF file exists at the specified path)
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfbase import pdfmetrics
+    font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'EBGaramond-Regular.ttf')
+    try:
+        pdfmetrics.registerFont(TTFont('EBGaramond', font_path))
+        font_main = "EBGaramond"
+        font_bold = "EBGaramond"
+    except Exception as e:
+        font_main = "Helvetica"
+        font_bold = "Helvetica-Bold"
+        print(f"Warning: EB Garamond font not found or could not be loaded. Using Helvetica instead. Error: {e}")
 
-    # Title
-    p.setFont("Helvetica-Bold", 18)
-    p.drawString(50, y, f"{current_user.first_name}")
-    y -= 30
+    def draw_wrapped_text(text, x, y, max_width, font, font_size):
+        from reportlab.pdfbase.pdfmetrics import stringWidth
+        words = text.split()
+        line = ''
+        for word in words:
+            test_line = f'{line} {word}'.strip()
+            if stringWidth(test_line, font, font_size) < max_width:
+                line = test_line
+            else:
+                p.drawString(x, y, line)
+                y -= line_height
+                line = word
+        if line:
+            p.drawString(x, y, line)
+            y -= line_height
+        return y
 
-    # Experience
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(50, y, "Experience:")
-    y -= 20
-    p.setFont("Helvetica", 12)
-    for exp in current_user.experiences:
-        p.drawString(60, y, f"{exp.role} at {exp.comp} ({exp.start_date} to {exp.end_date or 'Present'})")
-        y -= 20
-        p.drawString(70, y, exp.desc[:90])
-        y -= 30
+    # Name (centered, large, elegant)
+    p.setFont(font_bold, 28)
+    p.drawCentredString(width/2, y, f"{resume.name}")
+    y -= line_height + 10
+    p.setStrokeColorRGB(0.2, 0.2, 0.2)
+    p.setLineWidth(1)
+    p.line(left_margin, y, right_margin, y)
+    y -= section_gap
 
+    def section_title(title, y):
+        p.setFont(font_bold, 16)
+        p.drawString(left_margin, y, title)
+        y -= line_height
+        p.setLineWidth(0.5)
+        p.setStrokeColorRGB(0.7, 0.7, 0.7)
+        p.line(left_margin, y+6, right_margin, y+6)
+        y -= 6
+        return y
+
+    # Bio
+    if resume.bios:
+        y = section_title("BIO", y)
+        p.setFont(font_main, 12)
+        for bio in resume.bios:
+            y = draw_wrapped_text(bio.bio, left_margin+10, y, right_margin-left_margin-20, font_main, 12)
+        y -= section_gap
     # Education
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(50, y, "Education:")
-    y -= 20
-    p.setFont("Helvetica", 12)
-    for edu in current_user.educations:
-        p.drawString(60, y, f"{edu.uni}, {edu.location} — {edu.degree} ({edu.start_year} to {edu.end_year})")
-        y -= 30
-
+    if resume.educations:
+        y = section_title("EDUCATION", y)
+        p.setFont(font_main, 12)
+        for edu in resume.educations:
+            p.setFont(font_bold, 13)
+            p.drawString(left_margin, y, f"{edu.uni}, {edu.location}")
+            p.setFont(font_main, 11)
+            p.drawRightString(right_margin, y, f"{edu.start_year} - {edu.end_year}")
+            y -= line_height
+            y = draw_wrapped_text(edu.degree or '', left_margin+10, y, right_margin-left_margin-20, font_main, 11)
+            y -= 8
+            if y < 100:
+                p.showPage()
+                y = height - 60
+        y -= section_gap
+    # Experience
+    if resume.experiences:
+        y = section_title("EXPERIENCE", y)
+        p.setFont(font_main, 12)
+        for exp in resume.experiences:
+            p.setFont(font_bold, 13)
+            p.drawString(left_margin, y, f"{exp.role} at {exp.comp}")
+            p.setFont(font_main, 11)
+            y = draw_wrapped_text(exp.desc or '', left_margin+10, y, right_margin-left_margin-20, font_main, 11)
+            y -= 8
+            if y < 100:
+                p.showPage()
+                y = height - 60
+        y -= section_gap
     # Projects
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(50, y, "Projects:")
-    y -= 20
-    p.setFont("Helvetica", 12)
-    for proj in current_user.projects:
-        p.drawString(60, y, f"{proj.proj} (Tools: {proj.tool})")
-        y -= 20
-        p.drawString(70, y, proj.desc[:90])
-        y -= 30
-
+    if resume.projects:
+        y = section_title("PROJECTS", y)
+        p.setFont(font_main, 12)
+        for proj in resume.projects:
+            p.setFont(font_bold, 13)
+            p.drawString(left_margin, y, f"{proj.proj}")
+            y -= line_height
+            tools_indent = left_margin + 30
+            p.setFont(font_main, 10)
+            y = draw_wrapped_text(f"Tools: {proj.tool}", tools_indent, y, right_margin-tools_indent, font_main, 10)
+            p.setFont(font_main, 11)
+            y = draw_wrapped_text(proj.desc or '', left_margin+10, y, right_margin-left_margin-20, font_main, 11)
+            y -= 8
+            if y < 100:
+                p.showPage()
+                y = height - 60
+        y -= section_gap
     # Skills
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(50, y, "Skills:")
-    y -= 20
-    p.setFont("Helvetica", 12)
-    skills = ', '.join(skill.data for skill in current_user.skills)
-    p.drawString(60, y, skills)
-
+    if resume.skills:
+        y = section_title("SKILLS", y)
+        p.setFont(font_main, 12)
+        skills = ', '.join(skill.data for skill in resume.skills)
+        y = draw_wrapped_text(skills, left_margin, y, right_margin-left_margin, font_main, 12)
     p.save()
     buffer.seek(0)
-
-    return send_file(buffer, as_attachment=True, download_name="resume.pdf", mimetype='application/pdf')
+    return send_file(buffer, as_attachment=True, download_name=f"{resume.name}.pdf", mimetype='application/pdf')

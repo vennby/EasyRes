@@ -12,6 +12,41 @@ class User(db.Model, UserMixin):
     experiences = db.relationship('Experiences')
     projects = db.relationship('Projects')
     skills = db.relationship('Skills')
+    resumes = db.relationship('Resume', backref='user', lazy=True)
+
+# Association tables for selections
+resume_bios = db.Table('resume_bios',
+    db.Column('resume_id', db.Integer, db.ForeignKey('resume.id'), primary_key=True),
+    db.Column('bio_id', db.Integer, db.ForeignKey('bios.id'), primary_key=True)
+)
+resume_educations = db.Table('resume_educations',
+    db.Column('resume_id', db.Integer, db.ForeignKey('resume.id'), primary_key=True),
+    db.Column('education_id', db.Integer, db.ForeignKey('educations.id'), primary_key=True)
+)
+resume_experiences = db.Table('resume_experiences',
+    db.Column('resume_id', db.Integer, db.ForeignKey('resume.id'), primary_key=True),
+    db.Column('experience_id', db.Integer, db.ForeignKey('experiences.id'), primary_key=True)
+)
+resume_projects = db.Table('resume_projects',
+    db.Column('resume_id', db.Integer, db.ForeignKey('resume.id'), primary_key=True),
+    db.Column('project_id', db.Integer, db.ForeignKey('projects.id'), primary_key=True)
+)
+resume_skills = db.Table('resume_skills',
+    db.Column('resume_id', db.Integer, db.ForeignKey('resume.id'), primary_key=True),
+    db.Column('skill_id', db.Integer, db.ForeignKey('skills.id'), primary_key=True)
+)
+
+class Resume(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    bios = db.relationship('Bios', secondary=resume_bios, lazy='subquery')
+    educations = db.relationship('Educations', secondary=resume_educations, lazy='subquery')
+    experiences = db.relationship('Experiences', secondary=resume_experiences, lazy='subquery')
+    projects = db.relationship('Projects', secondary=resume_projects, lazy='subquery')
+    skills = db.relationship('Skills', secondary=resume_skills, lazy='subquery')
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    updated_at = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
 class Bios(db.Model):
     id = db.Column(db.Integer, primary_key=True)

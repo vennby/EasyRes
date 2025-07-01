@@ -1,24 +1,10 @@
 {% extends "base.html" %} {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <div class="d-flex align-items-center">
-    <div>
-      <h1 class="mb-0">EasyRes</h1>
-      <h5 class="text-muted">Quick Resume Builder</h5>
-    </div>
-  </div>
+  <h1 class="mb-0">Your Resumes</h1>
   <a href="{{ url_for('views.create_resume') }}" class="btn btn-primary"
     >Create Resume</a
   >
 </div>
-
-<div class="search-bar mb-4">
-  <input
-    type="text"
-    class="form-control"
-    placeholder="Browse your past resumes..."
-  />
-</div>
-
 <div class="row">
   {% for resume in resumes %}
   <div class="col-md-4 mb-4">
@@ -66,13 +52,6 @@
             Delete
           </button>
         </form>
-        <a
-          href="{{ url_for('views.download_specific_resume', resume_id=resume.id) }}"
-          class="btn btn-success btn-sm"
-          title="Download PDF"
-        >
-          <i class="fa-solid fa-download"></i>
-        </a>
       </div>
     </div>
   </div>
@@ -82,5 +61,4 @@
   </div>
   {% endfor %}
 </div>
-
 {% endblock %}
