@@ -1,10 +1,10 @@
-<h1 align="center"> EasyRes </h1>
+<h1 align="center"> EasyCV </h1>
 
 <p align="center"> A quick resume modifier to tailor your resume appropriately within minutes. </p>
 
 <img src="https://25.media.tumblr.com/tumblr_lycevj5uii1r621gdo1_500.gif" width="2000">
 
-<h3> TLDR; What is <b>EasyRes</b>?</h3>
+<h3> TLDR; What is <b>EasyCV</b>?</h3>
 <ul>
   <li>Automation tool for quickly building tailor-made resumes for applying to different domains or roles</li>
   <li>Maintains complete database of profile and dynamically generates resume based on user's selections</li>
