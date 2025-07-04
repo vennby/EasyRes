@@ -7,6 +7,7 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(150), unique=True)
     password = db.Column(db.String(150))
     first_name = db.Column(db.String(150))
+    personal_info = db.relationship('PersonalInfo', uselist=False, backref='user')
     bios = db.relationship('Bios')
     educations = db.relationship('Educations')
     experiences = db.relationship('Experiences')
@@ -35,6 +36,17 @@ resume_skills = db.Table('resume_skills',
     db.Column('resume_id', db.Integer, db.ForeignKey('resume.id'), primary_key=True),
     db.Column('skill_id', db.Integer, db.ForeignKey('skills.id'), primary_key=True)
 )
+
+class PersonalInfo(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    full_name = db.Column(db.String(150))
+    email = db.Column(db.String(150))
+    phone = db.Column(db.String(50))
+    address = db.Column(db.String(250))
+    linkedin = db.Column(db.String(150))
+    github = db.Column(db.String(150))
+    website = db.Column(db.String(150))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True)
 
 class Resume(db.Model):
     id = db.Column(db.Integer, primary_key=True)

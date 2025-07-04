@@ -1,9 +1,8 @@
 from flask import Blueprint, render_template, request, flash, jsonify, redirect, url_for, send_file, abort
 from flask_login import login_required, current_user
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 from .models import *
 from . import db
+from .pdf_utils import generate_resume_pdf
 import os, io, json
 
 views = Blueprint('views', __name__)
@@ -49,6 +48,33 @@ def profile():
             return add_skill(request.form.get('skill'))
     
     return render_template("profile.html", user=current_user)
+
+@views.route('/update-personal-info', methods=['POST'])
+@login_required
+def update_personal_info():
+    full_name = request.form.get('full_name')
+    email = request.form.get('email')
+    phone = request.form.get('phone')
+    address = request.form.get('address')
+    linkedin = request.form.get('linkedin')
+    github = request.form.get('github')
+    website = request.form.get('website')
+
+    personal_info = PersonalInfo.query.filter_by(user_id=current_user.id).first()
+    if not personal_info:
+        personal_info = PersonalInfo(user_id=current_user.id)
+        db.session.add(personal_info)
+
+    personal_info.full_name = full_name
+    personal_info.email = email
+    personal_info.phone = phone
+    personal_info.address = address
+    personal_info.linkedin = linkedin
+    personal_info.github = github
+    personal_info.website = website
+    db.session.commit()
+    flash('Personal information updated!', category='success')
+    return redirect(url_for('views.profile'))
 
 def add_bio(bio):
     bio = request.form.get('bio')
@@ -181,13 +207,6 @@ def delete_skill():
             db.session.commit()
     return jsonify({})
 
-# List all resumes for the current user
-@views.route('/resumes')
-@login_required
-def list_resumes():
-    resumes = Resume.query.filter_by(user_id=current_user.id).order_by(Resume.created_at.desc()).all()
-    return render_template('resumes.html', resumes=resumes, user=current_user)
-
 # Create a new resume (GET: show form, POST: save selections)
 @views.route('/resume/create', methods=['GET', 'POST'])
 @login_required
@@ -208,7 +227,7 @@ def create_resume():
         db.session.add(resume)
         db.session.commit()
         flash('Resume created!', category='success')
-        return redirect(url_for('views.list_resumes'))
+        return redirect(url_for('views.home'))
     # GET: show selection form
     return render_template('resume_form.html',
         user=current_user,
@@ -241,7 +260,7 @@ def edit_resume(resume_id):
         resume.skills = Skills.query.filter(Skills.id.in_(skill_ids)).all() if skill_ids else []
         db.session.commit()
         flash('Resume updated!', category='success')
-        return redirect(url_for('views.list_resumes'))
+        return redirect(url_for('views.home'))
     return render_template('resume_form.html',
         user=current_user,
         bios=current_user.bios,
@@ -262,16 +281,17 @@ def delete_resume(resume_id):
     db.session.delete(resume)
     db.session.commit()
     flash('Resume deleted!', category='success')
-    return redirect(url_for('views.list_resumes'))
+    return redirect(url_for('views.home'))
 
-# Fetch a single resume (for edit)
-@views.route('/resume/<int:resume_id>')
+@views.route('/resume/<int:resume_id>/preview_pdf')
 @login_required
-def view_resume(resume_id):
+def preview_resume_pdf(resume_id):
     resume = Resume.query.get_or_404(resume_id)
     if resume.user_id != current_user.id:
         abort(403)
-    return render_template('resume_preview.html', resume=resume, user=current_user)
+    buffer = generate_resume_pdf(resume)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=False, download_name=f"{resume.name}.pdf", mimetype='application/pdf')
 
 @views.route('/resume/<int:resume_id>/download')
 @login_required
@@ -279,125 +299,5 @@ def download_specific_resume(resume_id):
     resume = Resume.query.get_or_404(resume_id)
     if resume.user_id != current_user.id:
         abort(403)
-    buffer = io.BytesIO()
-    p = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
-    left_margin = 50
-    right_margin = width - 50
-    y = height - 60
-    line_height = 18
-    section_gap = 28
-
-    # Register EB Garamond font (ensure the TTF file exists at the specified path)
-    from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.pdfbase import pdfmetrics
-    font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'EBGaramond-Regular.ttf')
-    try:
-        pdfmetrics.registerFont(TTFont('EBGaramond', font_path))
-        font_main = "EBGaramond"
-        font_bold = "EBGaramond"
-    except Exception as e:
-        font_main = "Helvetica"
-        font_bold = "Helvetica-Bold"
-        print(f"Warning: EB Garamond font not found or could not be loaded. Using Helvetica instead. Error: {e}")
-
-    def draw_wrapped_text(text, x, y, max_width, font, font_size):
-        from reportlab.pdfbase.pdfmetrics import stringWidth
-        words = text.split()
-        line = ''
-        for word in words:
-            test_line = f'{line} {word}'.strip()
-            if stringWidth(test_line, font, font_size) < max_width:
-                line = test_line
-            else:
-                p.drawString(x, y, line)
-                y -= line_height
-                line = word
-        if line:
-            p.drawString(x, y, line)
-            y -= line_height
-        return y
-
-    # Name (centered, large, elegant)
-    p.setFont(font_bold, 28)
-    p.drawCentredString(width/2, y, f"{resume.name}")
-    y -= line_height + 10
-    p.setStrokeColorRGB(0.2, 0.2, 0.2)
-    p.setLineWidth(1)
-    p.line(left_margin, y, right_margin, y)
-    y -= section_gap
-
-    def section_title(title, y):
-        p.setFont(font_bold, 16)
-        p.drawString(left_margin, y, title)
-        y -= line_height
-        p.setLineWidth(0.5)
-        p.setStrokeColorRGB(0.7, 0.7, 0.7)
-        p.line(left_margin, y+6, right_margin, y+6)
-        y -= 6
-        return y
-
-    # Bio
-    if resume.bios:
-        y = section_title("BIO", y)
-        p.setFont(font_main, 12)
-        for bio in resume.bios:
-            y = draw_wrapped_text(bio.bio, left_margin+10, y, right_margin-left_margin-20, font_main, 12)
-        y -= section_gap
-    # Education
-    if resume.educations:
-        y = section_title("EDUCATION", y)
-        p.setFont(font_main, 12)
-        for edu in resume.educations:
-            p.setFont(font_bold, 13)
-            p.drawString(left_margin, y, f"{edu.uni}, {edu.location}")
-            p.setFont(font_main, 11)
-            p.drawRightString(right_margin, y, f"{edu.start_year} - {edu.end_year}")
-            y -= line_height
-            y = draw_wrapped_text(edu.degree or '', left_margin+10, y, right_margin-left_margin-20, font_main, 11)
-            y -= 8
-            if y < 100:
-                p.showPage()
-                y = height - 60
-        y -= section_gap
-    # Experience
-    if resume.experiences:
-        y = section_title("EXPERIENCE", y)
-        p.setFont(font_main, 12)
-        for exp in resume.experiences:
-            p.setFont(font_bold, 13)
-            p.drawString(left_margin, y, f"{exp.role} at {exp.comp}")
-            p.setFont(font_main, 11)
-            y = draw_wrapped_text(exp.desc or '', left_margin+10, y, right_margin-left_margin-20, font_main, 11)
-            y -= 8
-            if y < 100:
-                p.showPage()
-                y = height - 60
-        y -= section_gap
-    # Projects
-    if resume.projects:
-        y = section_title("PROJECTS", y)
-        p.setFont(font_main, 12)
-        for proj in resume.projects:
-            p.setFont(font_bold, 13)
-            p.drawString(left_margin, y, f"{proj.proj}")
-            y -= line_height
-            tools_indent = left_margin + 30
-            p.setFont(font_main, 10)
-            y = draw_wrapped_text(f"Tools: {proj.tool}", tools_indent, y, right_margin-tools_indent, font_main, 10)
-            p.setFont(font_main, 11)
-            y = draw_wrapped_text(proj.desc or '', left_margin+10, y, right_margin-left_margin-20, font_main, 11)
-            y -= 8
-            if y < 100:
-                p.showPage()
-                y = height - 60
-        y -= section_gap
-    # Skills
-    if resume.skills:
-        y = section_title("SKILLS", y)
-        p.setFont(font_main, 12)
-        skills = ', '.join(skill.data for skill in resume.skills)
-        y = draw_wrapped_text(skills, left_margin, y, right_margin-left_margin, font_main, 12)
-    p.save()
-    buffer.seek(0)
+    buffer = generate_resume_pdf(resume)
     return send_file(buffer, as_attachment=True, download_name=f"{resume.name}.pdf", mimetype='application/pdf')

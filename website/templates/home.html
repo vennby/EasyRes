@@ -2,7 +2,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div class="d-flex align-items-center">
     <div>
-      <h1 class="mb-0">EasyRes</h1>
+      <h1 class="mb-0">easy-cv</h1>
       <h5 class="text-muted">Quick Resume Builder</h5>
     </div>
   </div>
@@ -44,7 +44,7 @@
       </div>
       <div class="card-footer d-flex justify-content-between">
         <a
-          href="{{ url_for('views.view_resume', resume_id=resume.id) }}"
+          href="{{ url_for('views.preview_resume_pdf', resume_id=resume.id) }}"
           class="btn btn-outline-info btn-sm"
           >Preview</a
         >
