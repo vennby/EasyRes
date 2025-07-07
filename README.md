@@ -19,3 +19,10 @@
   
   So I just built it myself. Yup, instead of just making some 3 different resumes meant for different roles, I just <em>had</em> to build an application that did it for me.
 </p>
+
+<h3> How to run it? </h3>
+<p> Clone the repo, download it, do whatever you'd like to set it up in your code editor. Then, simply run </p>
+<p align="center"> <code> pip install -r requirements.txt </code> </p>
+<p> to first install the necessary libraries all at once. Since this is a Flask application, </p>
+<p align="center"> <code> flask run </code> </p>
+<p> should do the job. EasyCV would be up and running on your local machine in nearly no time! </p>
