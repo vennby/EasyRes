@@ -12,95 +12,30 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
       rel="stylesheet"
     />
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <style>
-      body {
-        min-height: 100vh;
-        display: flex;
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      }
-
-      body.no-sidebar .content {
-        margin-left: 0;
-      }
-
-      .sidebar {
-        min-width: 220px;
-        max-width: 220px;
-        background-color: #343a40;
-        color: white;
-        display: flex;
-        flex-direction: column;
-        padding-top: 1rem;
-        position: fixed;
-        top: 0;
-        left: 0;
-        height: 100vh;
-        z-index: 1000;
-      }
-
-      .sidebar a {
-        color: white;
-        padding: 0.75rem 1.25rem;
-        text-decoration: none;
-        display: block;
-        transition: background 0.3s;
-      }
-
-      .sidebar a:hover {
-        background-color: #495057;
-      }
-
-      .sidebar .nav-title {
-        padding: 1rem 1.25rem;
-        font-size: 1.25rem;
-        font-weight: bold;
-        color: #f8f9fa;
-      }
-
-      .content {
-        flex-grow: 1;
-        padding: 2rem;
-        background-color: #f8f9fa;
-        margin-left: 220px;
-        min-width: 0;
-      }
-
-      .alert {
-        margin-top: 1rem;
-        position: relative;
-        padding-right: 3rem; /* Create space for the close button */
-      }
-
-      .alert .close {
-        position: absolute;
-        right: 10px; /* Align it to the far right */
-        top: 50%;
-        transform: translateY(-50%);
-        background: none;
-        border: none;
-        font-size: 1.5rem;
-        color: inherit;
-      }
-
-      .alert-success {
-        border-left: 5px solid #28a745;
-      }
-
-      .alert-danger {
-        border-left: 5px solid #dc3545;
-      }
-
-      .alert-dismissible .close {
-        color: inherit;
-      }
-    </style>
+    <link
+     rel="stylesheet"
+     href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/css/intlTelInput.css"
+   />
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/intlTelInput.min.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+   <link href="{{ url_for('static', filename='styles.css') }}" rel="stylesheet" />
   </head>
   <body{% if show_navbar == false %} class="no-sidebar"{% endif %}>
     {% if show_navbar != false %}
       <nav class="sidebar">
         <div class="nav-title">
           <i class="fa-solid fa-file-lines me-2"></i>easy-cv
+        </div>
+        <div class="text-center mb-3">
+          {% if user.is_authenticated %}
+            {% if user.personal_info and user.personal_info.image_path %}
+              <img src="{{ url_for('static', filename='uploads/' ~ user.personal_info.image_path) }}" alt="Profile Image" class="profile-image">
+            {% else %}
+              <i class="fa-solid fa-user-circle user-icon"></i>
+            {% endif %}
+          {% else %}
+            <i class="fa-solid fa-user-circle user-icon"></i>
+          {% endif %}
         </div>
         <div class="nav flex-column">
           {% if user.is_authenticated %}

@@ -11,13 +11,15 @@
   >
 </div>
 
-<div class="search-bar mb-4">
+<form class="search-bar mb-4" method="get" action="{{ url_for('views.home') }}">
   <input
     type="text"
     class="form-control"
+    name="search"
     placeholder="Browse your past resumes..."
+    value="{{ search_query or '' }}"
   />
-</div>
+</form>
 
 <div class="row">
   {% for resume in resumes %}

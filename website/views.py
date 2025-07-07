@@ -4,14 +4,19 @@ from .models import *
 from . import db
 from .pdf_utils import generate_resume_pdf
 import os, io, json
+import datetime
 
 views = Blueprint('views', __name__)
 
-@views.route('/home')
+@views.route('/home', methods=['GET', 'POST'])
 @login_required
 def home():
-    resumes = Resume.query.filter_by(user_id=current_user.id).order_by(Resume.created_at.desc()).all()
-    return render_template("home.html", user=current_user, resumes=resumes)
+    search_query = request.args.get('search', '').strip() if 'search' in request.args else ''
+    resumes = Resume.query.filter_by(user_id=current_user.id).order_by(Resume.created_at.desc())
+    if search_query:
+        resumes = resumes.filter(Resume.name.ilike(f"%{search_query}%"))
+    resumes = resumes.all()
+    return render_template("home.html", user=current_user, resumes=resumes, search_query=search_query)
 
 @views.route('/profile', methods=['GET','POST'])
 @login_required
@@ -47,7 +52,7 @@ def profile():
         elif 'skill' in request.form:
             return add_skill(request.form.get('skill'))
     
-    return render_template("profile.html", user=current_user)
+    return render_template("profile.html", user=current_user, calculate_duration=calculate_duration)
 
 @views.route('/update-personal-info', methods=['POST'])
 @login_required
@@ -72,6 +77,17 @@ def update_personal_info():
     personal_info.linkedin = linkedin
     personal_info.github = github
     personal_info.website = website
+    # Handle profile image upload
+    if 'profile_image' in request.files:
+        file = request.files['profile_image']
+        if file and file.filename:
+            from werkzeug.utils import secure_filename
+            filename = secure_filename(file.filename)
+            upload_folder = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
+            os.makedirs(upload_folder, exist_ok=True)
+            file_path = os.path.join(upload_folder, filename)
+            file.save(file_path)
+            personal_info.image_path = filename
     db.session.commit()
     flash('Personal information updated!', category='success')
     return redirect(url_for('views.profile'))
@@ -110,14 +126,90 @@ def add_education(uni, location, degree, start_year, end_year):
     flash("Education added!", category='success')
     return redirect(url_for('views.profile'))
 
+def is_ongoing_experience(start_date_str, end_date_str):
+    import datetime
+    def parse_date(s):
+        if not s:
+            return None
+        for fmt in ('%Y-%m-%d', '%Y-%m', '%Y'):
+            try:
+                return datetime.datetime.strptime(s, fmt).date()
+            except Exception:
+                continue
+        return None
+    end = parse_date(end_date_str)
+    today = datetime.date.today()
+    # Ongoing if end date is missing or in the future
+    return not end_date_str or (end and end > today)
+
+def calculate_duration(start_date_str, end_date_str=None):
+    """
+    Calculate the duration between two dates in years and months.
+    If end_date_str is missing, use today as the end date (ongoing).
+    """
+    import datetime
+    def parse_date(s):
+        if not s:
+            return None
+        for fmt in ('%Y-%m-%d', '%Y-%m', '%Y'):
+            try:
+                return datetime.datetime.strptime(s, fmt).date()
+            except Exception:
+                continue
+        return None
+    start = parse_date(start_date_str)
+    # If end_date_str is missing or empty, treat as ongoing and use today
+    if not end_date_str or end_date_str.strip() == '':
+        end = datetime.date.today()
+    else:
+        end = parse_date(end_date_str)
+    if not start or not end:
+        return ''
+    years = end.year - start.year
+    months = end.month - start.month
+    days = end.day - start.day
+    if days < 0:
+        months -= 1
+        prev_month = (end.month - 1) if end.month > 1 else 12
+        prev_year = end.year if end.month > 1 else end.year - 1
+        days_in_prev_month = (datetime.date(prev_year, prev_month % 12 + 1, 1) - datetime.timedelta(days=1)).day
+        days += days_in_prev_month
+    if months < 0:
+        years -= 1
+        months += 12
+    parts = []
+    if years > 0:
+        parts.append(f"{years} year{'s' if years != 1 else ''}")
+    if months > 0:
+        parts.append(f"{months} month{'s' if months != 1 else ''}")
+    return ', '.join(parts) if parts else 'Less than a month'
+
 def add_experience(role, comp, desc, start_date, end_date, ongoing):
+    import datetime
     role = request.form.get('role')
     comp = request.form.get('comp')
     desc = request.form.get('desc')
     start_date = request.form.get('start_date')
     end_date = request.form.get('end_date')
+    # If end_date is in the future, force ongoing
     ongoing = request.form.get('ongoing') == 'on'
-
+    end_date_obj = None
+    if end_date:
+        try:
+            end_date_obj = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
+        except Exception:
+            try:
+                end_date_obj = datetime.datetime.strptime(end_date, '%Y-%m').date()
+            except Exception:
+                try:
+                    end_date_obj = datetime.datetime.strptime(end_date, '%Y').date()
+                except Exception:
+                    end_date_obj = None
+    # If end_date is missing or in the future, set ongoing True and end_date to None
+    if not end_date or (end_date_obj and end_date_obj > datetime.date.today()):
+        ongoing = True
+        end_date = None
+    duration = calculate_duration(start_date, end_date)
     new_experience = Experiences(
         role=role,
         comp=comp,
@@ -127,6 +219,7 @@ def add_experience(role, comp, desc, start_date, end_date, ongoing):
         ongoing=ongoing,
         user_id=current_user.id
     )
+    new_experience.duration = duration
     db.session.add(new_experience)
     db.session.commit()
     flash("Experience added!", category='success')
@@ -145,11 +238,15 @@ def add_project(proj, tool, desc):
     flash("Project added!", category='success')
     return redirect(url_for('views.profile'))
 
-def add_skill(skill_data):
-    if len(skill_data) > 20:
-        flash("Skill must be smaller than 20 characters!", category='error')
+def add_skill(skill_data=None):
+    skill_data = skill_data or request.form.get('skill')
+    group = request.form.get('group')
+    new_group = request.form.get('new_group')
+    group = new_group if new_group else group
+    if len(skill_data) > 50:
+        flash("Skill must be smaller than 50 characters!", category='error')
     else:
-        new_skill = Skills(data=skill_data, user_id=current_user.id)
+        new_skill = Skills(data=skill_data, group=group, user_id=current_user.id)
         db.session.add(new_skill)
         db.session.commit()
         flash("Skill added!", category='success')
@@ -218,7 +315,8 @@ def create_resume():
         experience_ids = request.form.getlist('experiences')
         project_ids = request.form.getlist('projects')
         skill_ids = request.form.getlist('skills')
-        resume = Resume(name=name, user_id=current_user.id)
+        format = request.form.get('format', 'classic')
+        resume = Resume(name=name, user_id=current_user.id, format=format)
         resume.bios = Bios.query.filter(Bios.id.in_(bio_ids)).all() if bio_ids else []
         resume.educations = Educations.query.filter(Educations.id.in_(education_ids)).all() if education_ids else []
         resume.experiences = Experiences.query.filter(Experiences.id.in_(experience_ids)).all() if experience_ids else []
@@ -248,6 +346,7 @@ def edit_resume(resume_id):
         abort(403)
     if request.method == 'POST':
         resume.name = request.form.get('name')
+        resume.format = request.form.get('format', 'classic')
         bio_ids = request.form.getlist('bios')
         education_ids = request.form.getlist('educations')
         experience_ids = request.form.getlist('experiences')

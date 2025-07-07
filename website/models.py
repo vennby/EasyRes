@@ -47,6 +47,7 @@ class PersonalInfo(db.Model):
     github = db.Column(db.String(150))
     website = db.Column(db.String(150))
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True)
+    image_path = db.Column(db.String(200), nullable=True)
 
 class Resume(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -59,6 +60,7 @@ class Resume(db.Model):
     skills = db.relationship('Skills', secondary=resume_skills, lazy='subquery')
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
     updated_at = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+    format = db.Column(db.String(50), nullable=False, default='classic')
 
 class Bios(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -93,5 +95,6 @@ class Projects(db.Model):
     
 class Skills(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    data = db.Column(db.String(20))
+    data = db.Column(db.String(50))
+    group = db.Column(db.String(50), nullable=True)  # New: group name for skill grouping
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))

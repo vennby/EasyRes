@@ -1,6 +1,6 @@
 {% extends "base.html" %} {% block content %}
 <h1 class="text-center mb-4">Personal Information</h1>
-<form method="POST" action="/update-personal-info" class="mb-4">
+<form method="POST" action="/update-personal-info" class="mb-4" enctype="multipart/form-data">
   <div class="form-group">
     <label for="full_name">Full Name</label>
     <input
@@ -25,13 +25,15 @@
   </div>
   <div class="form-group">
     <label for="phone">Phone</label>
-    <input
-      type="text"
-      name="phone"
-      id="phone"
-      class="form-control"
-      value="{{ user.personal_info.phone if user.personal_info else '' }}"
-    />
+      <input
+        type="tel"
+        name="phone"
+        id="phone"
+        class="form-control"
+        value="{{ user.personal_info.phone if user.personal_info else '' }}"
+        placeholder="Phone number"
+      />
+    </div>
   </div>
   <div class="form-group">
     <label for="address">Address</label>
@@ -73,6 +75,13 @@
       value="{{ user.personal_info.website if user.personal_info else '' }}"
     />
   </div>
+  <div class="form-group">
+    <label for="profile_image">Profile Picture</label><br>
+    {% if user.personal_info and user.personal_info.image_path %}
+      <img src="{{ url_for('static', filename='uploads/' ~ user.personal_info.image_path) }}" alt="Profile Image" style="max-width:120px;max-height:120px;border-radius:50%;margin-bottom:10px;">
+    {% endif %}
+    <input type="file" name="profile_image" id="profile_image" class="form-control-file" accept="image/*">
+  </div>
   <div class="text-center mt-3">
     <button type="submit" class="btn btn-primary">Save Personal Info</button>
   </div>
@@ -80,7 +89,7 @@
 <h1 class="text-center mb-4">Bio</h1>
 <ul class="list-group list-group-flush" id="bio">
   {% for bio in user.bios %}
-  <li class="list-group-item d-flex justify-content-between align-items-center">
+  <li class="list-group-item d-flex justify-content-between align-items-center" id="bio-{{ bio.id }}">
     <span style="white-space: pre-wrap">{{ bio.bio }}</span>
     <button
       type="button"
@@ -108,7 +117,7 @@
 <h1 class="text-center mb-4">Education</h1>
 <ul class="list-group list-group-flush" id="education">
   {% for education in user.educations %}
-  <li class="list-group-item">
+  <li class="list-group-item" id="education-{{ education.id }}">
     <div class="d-flex justify-content-between">
       <h5 class="mb-1">{{ education.uni }}</h5>
       <span class="text-muted">{{ education.location }}</span>
@@ -185,11 +194,11 @@
 
 <ul class="list-group list-group-flush" id="experience">
   {% for experience in user.experiences %}
-  <li class="list-group-item d-flex justify-content-between align-items-center">
+  <li class="list-group-item d-flex justify-content-between align-items-center" id="experience-{{ experience.id }}">
     <div>
       <h5>{{ experience.role }} • {{ experience.comp }}</h5>
       <p style="white-space: pre-wrap">{{ experience.desc }}</p>
-      <p><strong>Duration:</strong> {{ experience.duration }} months</p>
+      <p><strong>Duration:</strong> {{ calculate_duration(experience.start_date, experience.end_date) }}</p>
       <p>
         <strong>Status:</strong> {% if experience.ongoing %}Ongoing{% else
         %}Ended{% endif %}
@@ -237,17 +246,8 @@
     />
   </div>
   <div class="form-group">
-    <label for="end_date">End Date</label>
+    <label for="end_date">End Date <span class="text-muted">(leave blank if current job)</span></label>
     <input type="date" name="end_date" id="end_date" class="form-control" />
-  </div>
-  <div class="form-group">
-    <label for="ongoing">Ongoing</label>
-    <input
-      type="checkbox"
-      name="ongoing"
-      id="ongoing"
-      class="form-check-input"
-    />
   </div>
   <div class="text-center">
     <button type="submit" class="btn btn-primary">Add Experience</button>
@@ -256,7 +256,7 @@
 <h1 class="text-center mb-4">Projects</h1>
 <ul class="list-group list-group-flush" id="project">
   {% for project in user.projects %}
-  <li class="list-group-item">
+  <li class="list-group-item" id="project-{{ project.id }}">
     <div class="d-flex justify-content-between">
       <h5 class="mb-1">{{ project.proj }}</h5>
       <span class="text-muted">{{ project.tool }}</span>
@@ -302,28 +302,47 @@
 </form>
 <h1 class="text-center mb-4">Skills</h1>
 <ul class="list-group list-group-flush" id="skill">
+  {% set grouped_skills = {} %}
   {% for skill in user.skills %}
-  <li class="list-group-item d-flex justify-content-between align-items-center">
-    <span style="white-space: pre-wrap">{{ skill.data }}</span>
-    <button
-      type="button"
-      class="btn btn-sm btn-outline-danger"
-      onClick="deleteSkill('{{ skill.id }}')"
-      aria-label="Delete"
-    >
-      <i class="fa fa-times"></i>
-    </button>
-  </li>
+    {% set group = skill.group or 'Other' %}
+    {% if group not in grouped_skills %}
+      {% set _ = grouped_skills.update({group: []}) %}
+    {% endif %}
+    {% set _ = grouped_skills[group].append(skill) %}
+  {% endfor %}
+  {% for group, skills in grouped_skills.items() %}
+    <li class="list-group-item">
+      <strong>{{ group }}</strong>
+      <ul class="list-inline mt-2 mb-1">
+        {% for skill in skills %}
+          <li class="list-inline-item" id="skill-{{ skill.id }}">
+            <span style="white-space: pre-wrap">{{ skill.data }}</span>
+            <button type="button" class="btn btn-sm btn-outline-danger ms-1" onClick="deleteSkill('{{ skill.id }}')" aria-label="Delete"><i class="fa fa-times"></i></button>
+          </li>
+        {% endfor %}
+      </ul>
+    </li>
   {% endfor %}
 </ul>
-
 <form method="POST" class="mt-4" id="skill-form">
-  <textarea
-    name="skill"
-    id="skill"
-    class="form-control mb-3"
-    placeholder="Write your note here..."
-  ></textarea>
+  <div class="row g-2">
+    <div class="col-md-8">
+      <input
+        name="skill"
+        id="skill"
+        class="form-control mb-2"
+        placeholder="Skill name (e.g. Python)"
+      />
+    </div>
+    <div class="col-md-4">
+      <input
+        name="group"
+        id="group"
+        class="form-control mb-2"
+        placeholder="Group (e.g. Programming)"
+      />
+    </div>
+  </div>
   <div class="text-center">
     <button type="submit" class="btn btn-primary">Add Skill</button>
   </div>

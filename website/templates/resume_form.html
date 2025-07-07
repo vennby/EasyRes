@@ -147,6 +147,13 @@
     </div>
     {% endfor %}
   </div>
+  <div class="mb-3">
+    <label for="format" class="form-label">Resume Format</label>
+    <select class="form-select" id="format" name="format" required>
+      <option value="classic" {% if resume and resume.format == 'classic' %}selected{% endif %}>Classic</option>
+      <option value="modern" {% if resume and resume.format == 'modern' %}selected{% endif %}>Modern</option>
+    </select>
+  </div>
   <button type="submit" class="btn btn-success">
     {{ 'Update' if resume else 'Create' }} Resume
   </button>
