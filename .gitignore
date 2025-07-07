@@ -116,9 +116,6 @@ website/fonts/
 # Node modules
 node_modules/
 
-# Static build output
-website/static/
-
 # Ignore system files
 .DS_Store
 Thumbs.db
