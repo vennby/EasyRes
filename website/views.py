@@ -2,7 +2,8 @@ from flask import Blueprint, render_template, request, flash, jsonify, redirect,
 from flask_login import login_required, current_user
 from .models import *
 from . import db
-from .pdf_utils import generate_resume_pdf
+from .resume_classic import generate_classic_resume
+from .resume_modern import generate_modern_resume
 import os, io, json
 import datetime
 
@@ -388,7 +389,11 @@ def preview_resume_pdf(resume_id):
     resume = Resume.query.get_or_404(resume_id)
     if resume.user_id != current_user.id:
         abort(403)
-    buffer = generate_resume_pdf(resume)
+    match getattr(resume, 'format', 'classic'):
+        case 'modern':
+            buffer = generate_modern_resume(resume)
+        case 'classic' | _:
+            buffer = generate_classic_resume(resume)
     buffer.seek(0)
     return send_file(buffer, as_attachment=False, download_name=f"{resume.name}.pdf", mimetype='application/pdf')
 
@@ -398,5 +403,9 @@ def download_specific_resume(resume_id):
     resume = Resume.query.get_or_404(resume_id)
     if resume.user_id != current_user.id:
         abort(403)
-    buffer = generate_resume_pdf(resume)
+    match getattr(resume, 'format', 'classic'):
+        case 'modern':
+            buffer = generate_modern_resume(resume)
+        case 'classic' | _:
+            buffer = generate_classic_resume(resume)
     return send_file(buffer, as_attachment=True, download_name=f"{resume.name}.pdf", mimetype='application/pdf')
